@@ -629,7 +629,7 @@ fn maybe_search_include(include_paths: &[PathBuf], header: &str) -> Option<Strin
 }
 
 fn link_to_libraries(statik: bool) {
-    let ffmpeg_ty = if statik { "static" } else { "dylib" };
+    let ffmpeg_ty = if statik { "static" } else { "lib" };
     for lib in LIBRARIES {
         let feat_is_enabled = lib.feature_name().and_then(|f| env::var(f).ok()).is_some();
         if !lib.is_feature || feat_is_enabled {
@@ -645,14 +645,45 @@ fn main() {
     let include_paths: Vec<PathBuf> = {
         let path = env::current_dir().unwrap();
         #[cfg(target_os = "windows") ]
-        println!("cargo:rustc-link-search=native={}", path.join("bin/x64-windows/").to_str().unwrap());
+        {
+            std::fs::copy("./bin/x64-windows/avcodec-59.dll", output().join("avcodec-59.dll")).unwrap();
+            std::fs::copy("./bin/x64-windows/avdevice-59.dll", output().join("avdevice-59.dll")).unwrap();
+            std::fs::copy("./bin/x64-windows/avfilter-8.dll", output().join("avfilter-8.dll")).unwrap();
+            std::fs::copy("./bin/x64-windows/avformat-59.dll", output().join("avformat-59.dll")).unwrap();
+            std::fs::copy("./bin/x64-windows/avutil-57.dll", output().join("avutil-57.dll")).unwrap();
+            std::fs::copy("./bin/x64-windows/swresample-4.dll", output().join("swresample-4.dll")).unwrap();
+            std::fs::copy("./bin/x64-windows/swscale-6.dll", output().join("swscale-6.dll")).unwrap();
+
+            println!("cargo:rustc-link-search=native={}", path.join("bin").join("x64-windows").to_str().unwrap());
+            println!("cargo:rustc-link-search={}", path.join("bin").join("x64-windows").to_str().unwrap());
+        }
+        
             
         #[cfg(not(target_os = "windows")) ]
-        println!("cargo:rustc-link-search=native={}", path.join("bin/aarch64-android/").to_str().unwrap());
+        {
+            // std::fs::copy("./bin/x64-windows/avcodec.so", output().join("avcodec.so")).unwrap();
+            // std::fs::copy("./bin/x64-windows/avdevice.so", output().join("avdevice.so")).unwrap();
+            // std::fs::copy("./bin/x64-windows/avfilter.so", output().join("avfilter.so")).unwrap();
+            // std::fs::copy("./bin/x64-windows/avformat.so", output().join("avformat.so")).unwrap();
+            // std::fs::copy("./bin/x64-windows/avutil.so", output().join("avutil.so")).unwrap();
+            // std::fs::copy("./bin/x64-windows/swresample.so", output().join("swresample.so")).unwrap();
+            // std::fs::copy("./bin/x64-windows/swscale.so", output().join("swscale.so")).unwrap();
+
+            println!("cargo:rustc-link-search=native={}", path.join("bin").join("aarch64-android").to_str().unwrap());
+            println!("cargo:rustc-link-search={}", path.join("bin").join("aarch64-android").to_str().unwrap());
+        }
+        
         
         link_to_libraries(statik);
+
+        println!("cargo:rustc-link-search=native={}", output().to_str().unwrap());
+        println!("cargo:rustc-link-search={}", output().to_str().unwrap());
         
-        let include_paths = vec![path.join("include")];
+        #[cfg(target_os = "windows") ]
+        let include_paths = vec![path.join("include-5.0")]; // windows用的是ffmpeg5.0
+        #[cfg(not(target_os = "windows")) ]
+        let include_paths = vec![path.join("include-6.0")];  // android用的是ffmpeg6.0
+
         include_paths
     };
 
