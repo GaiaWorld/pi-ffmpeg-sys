@@ -80,10 +80,7 @@ impl ParseCallbacks for Callbacks {
         let codec_flag_prefix = "AV_CODEC_FLAG_";
         let error_max_size = "AV_ERROR_MAX_STRING_SIZE";
 
-        if value >= i64::min_value() as i64
-            && value <= i64::max_value() as i64
-            && _name.starts_with(ch_layout_prefix)
-        {
+        if value >= i64::min_value() && _name.starts_with(ch_layout_prefix) {
             Some(IntKind::ULongLong)
         } else if value >= i32::min_value() as i64
             && value <= i32::max_value() as i64
@@ -445,7 +442,7 @@ fn check_features(
         );
     }
 
-    let version_check_info = [("avcodec", 56, 60, 0, 108)];
+    let version_check_info = [("avcodec", 56, 61, 0, 108)];
     for &(lib, begin_version_major, end_version_major, begin_version_minor, end_version_minor) in
         version_check_info.iter()
     {
@@ -590,6 +587,8 @@ fn check_features(
         ("ffmpeg_4_4", 58, 100),
         ("ffmpeg_5_0", 59, 18),
         ("ffmpeg_5_1", 59, 37),
+        ("ffmpeg_6_0", 60, 3),
+        ("ffmpeg_6_1", 60, 31),
     ];
     for &(ffmpeg_version_flag, lavc_version_major, lavc_version_minor) in
         ffmpeg_lavc_versions.iter()
@@ -632,101 +631,45 @@ fn maybe_search_include(include_paths: &[PathBuf], header: &str) -> Option<Strin
 fn link_to_libraries(statik: bool) {
     let ffmpeg_ty = if statik { "static" } else { "dylib" };
     for lib in LIBRARIES {
-        let feat_is_enabled = lib.feature_name().and_then(|f| env::var(&f).ok()).is_some();
+        let feat_is_enabled = lib.feature_name().and_then(|f| env::var(f).ok()).is_some();
         if !lib.is_feature || feat_is_enabled {
-            println!("cargo:rustc-link-lib={}={}", ffmpeg_ty, lib.name);
+            println!("cargo:rustc-link-{}={}", ffmpeg_ty, lib.name);
         }
     }
-    if env::var("CARGO_FEATURE_BUILD_ZLIB").is_ok() && cfg!(target_os = "linux") {
-        println!("cargo:rustc-link-lib=z");
-    }
 }
-
-
 
 fn main() {
     let statik = env::var("CARGO_FEATURE_STATIC").is_ok();
     let ffmpeg_major_version: u32 = env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap();
 
-    // println!("===================1");
-    let include_paths: Vec<PathBuf> = if env::var("CARGO_FEATURE_BUILD").is_ok() {
-        println!(
-            "cargo:rustc-link-search=native={}",
-            search().join("lib").to_string_lossy()
-        );
-        link_to_libraries(statik);
-        if fs::metadata(&search().join("lib").join("libavutil.a")).is_err() {
-            fs::create_dir_all(&output()).expect("failed to create build directory");
-            fetch().unwrap();
-            build().unwrap();
-        }
-
-        // Check additional required libraries.
-        {
-            let config_mak = source().join("ffbuild/config.mak");
-            let file = File::open(config_mak).unwrap();
-            let reader = BufReader::new(file);
-            let extra_libs = reader
-                .lines()
-                .find(|line| line.as_ref().unwrap().starts_with("EXTRALIBS"))
-                .map(|line| line.unwrap())
-                .unwrap();
-
-            let linker_args = extra_libs.split('=').last().unwrap().split(' ');
-            let include_libs = linker_args
-                .filter(|v| v.starts_with("-l"))
-                .map(|flag| &flag[2..]);
-
-            for lib in include_libs {
-                println!("cargo:rustc-link-lib={}", lib);
-            }
-        }
-
-        vec![search().join("include")]
-    }
-    // Use prebuilt library
-    else if let Ok(ffmpeg_dir) = env::var("FFMPEG_DIR") {
-        let ffmpeg_dir = PathBuf::from(ffmpeg_dir);
-        println!(
-            "cargo:rustc-link-search=native={}",
-            ffmpeg_dir.join("lib").to_string_lossy()
-        );
-        link_to_libraries(statik);
-        vec![ffmpeg_dir.join("include")]
-    } else if let Some(paths) = try_vcpkg(statik) {
-        // vcpkg doesn't detect the "system" dependencies
-        if statik {
-            if cfg!(feature = "avcodec") || cfg!(feature = "avdevice") {
-                println!("cargo:rustc-link-lib=ole32");
-            }
-
-            if cfg!(feature = "avformat") {
-                println!("cargo:rustc-link-lib=secur32");
-                println!("cargo:rustc-link-lib=ws2_32");
-            }
-
-            // avutil depdendencies
-            println!("cargo:rustc-link-lib=bcrypt");
-            println!("cargo:rustc-link-lib=user32");
-        }
-        println!("paths: {:?}", paths);
-        paths
-    }
-    // Fallback to pkg-config
-    else {
+    let include_paths: Vec<PathBuf> = {
         let path = env::current_dir().unwrap();
-        println!(
-            "cargo:rustc-link-search=native={}",
-            path.join("lib/").to_str().unwrap()
-        );
+        #[cfg(target_os = "windows") ]
+        {
+            println!("cargo:rustc-link-search=native={}", path.join("bin/x64-windows/").to_str().unwrap());
+            // println!("cargo:rustc-link-dylib=avcodec-59");
+            // println!("cargo:rustc-link-dylib=avdevice-59");
+            // println!("cargo:rustc-link-dylib=avfilter-8");
+            // println!("cargo:rustc-link-dylib=avformat-59");
+            // println!("cargo:rustc-link-dylib=avutil-57");
+            // println!("cargo:rustc-link-dylib=swresample-4");
+            // println!("cargo:rustc-link-dylib=swscale-6");
+            
+        }
+        
+
+        #[cfg(not(target_os = "windows")) ]
+        {
+            println!("cargo:rustc-link-search=native={}", path.join("bin/aarch64-android/").to_str().unwrap());
+        //     println!("cargo:rustc-link-dylib=avcodec");
+        //     println!("cargo:rustc-link-dylib=avdevice");
+        //     println!("cargo:rustc-link-dylib=avfilter");
+        //     println!("cargo:rustc-link-dylib=avformat");
+        //     println!("cargo:rustc-link-dylib=avutil");
+        //     println!("cargo:rustc-link-dylib=swresample");
+        //     println!("cargo:rustc-link-dylib=swscale");
+        }
         link_to_libraries(statik);
-        // println!("cargo:rustc-link-lib=avutil-56");
-        // println!("cargo:rustc-link-lib=avformat-58");
-        // println!("cargo:rustc-link-lib=avfilter-7");
-        // println!("cargo:rustc-link-lib=avdevice-58");
-        // println!("cargo:rustc-link-lib=swscale-5");
-        // println!("cargo:rustc-link-lib=swresample-3");
-        // println!("cargo:rustc-link-lib=avcodec-58");
         let include_paths = vec![path.join("include")];
         include_paths
     };
@@ -754,7 +697,7 @@ fn main() {
             println!("cargo:rustc-link-lib=framework={}", f);
         }
     }
-
+    println!("include_paths: {:?}", include_paths);
     check_features(
         include_paths.clone(),
         &[
@@ -1061,6 +1004,9 @@ fn main() {
         .iter()
         .map(|include| format!("-I{}", include.to_string_lossy()));
 
+    // The bindgen::Builder is the main entry point
+    // to bindgen, and lets you build up options for
+    // the resulting bindings.
     if cfg!(target_os = "windows") {
         let mut builder = bindgen::Builder::default()
             .clang_args(clang_includes)
@@ -1153,7 +1099,9 @@ fn main() {
             .blocklist_function("y1l")
             .blocklist_function("ynl")
             .opaque_type("__mingw_ldbl_type_t")
-            .rustified_enum("*")
+            .default_enum_style(bindgen::EnumVariation::Rust {
+                non_exhaustive: env::var("CARGO_FEATURE_NON_EXHAUSTIVE_ENUMS").is_ok(),
+            })
             .prepend_enum_name(false)
             .derive_eq(true)
             .size_t_is_usize(true)
@@ -1279,14 +1227,14 @@ fn main() {
         bindings
             .write_to_file(output().join("bindings.rs"))
             .expect("Couldn't write bindings!");
-        // The bindgen::Builder is the main entry point
-        // to bindgen, and lets you build up options for
-        // the resulting bindings.
+    // The bindgen::Builder is the main entry point
+    // to bindgen, and lets you build up options for
+    // the resulting bindings.
     } else {
         let path = std::env::current_dir().unwrap();
-        println!("path： {:?}", path.join("lib/bindings.rs"));
+        println!("path {:?}", path.join("bindings.rs"));
         let mut dst = env::var("OUT_DIR").unwrap();
         dst.push_str("/bindings.rs");
-        let _ = std::fs::copy(path.join("lib/bindings.rs"), dst).unwrap();
+        let _ = std::fs::copy(path.join("bindings.rs"), dst).unwrap();
     }
 }

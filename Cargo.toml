@@ -11,7 +11,7 @@
 
 [package]
 name = "ffmpeg-sys"
-version = "5.1.1"
+version = "6.1.0"
 authors = [
     "meh. <meh@schizofreni.co>",
     "Zhiming Wang <i@zhimingwang.org>",
@@ -31,14 +31,11 @@ repository = "https://github.com/zmwangx/rust-ffmpeg-sys"
 crate-type = ["cdylib", "lib"]
 doctest = false
 
-
-
-
 [dependencies.libc]
 version = "0.2"
 
 [build-dependencies.bindgen]
-version = "0.59"
+version = "0.64"
 features = ["runtime"]
 default-features = false
 
@@ -46,7 +43,7 @@ default-features = false
 version = "1.0"
 
 [build-dependencies.num_cpus]
-version = "1.11"
+version = "1.15"
 
 [build-dependencies.pkg-config]
 version = "0.3"
@@ -118,6 +115,7 @@ default = [
     "swresample",
     "swscale",
 ]
+non-exhaustive-enums = []
 postproc = []
 static = []
 swresample = []
