@@ -381,24 +381,24 @@ fn build() -> io::Result<()> {
     Ok(())
 }
 
-#[cfg(not(target_env = "msvc"))]
-fn try_vcpkg(_statik: bool) -> Option<Vec<PathBuf>> {
-    None
-}
+// #[cfg(not(target_env = "msvc"))]
+// fn try_vcpkg(_statik: bool) -> Option<Vec<PathBuf>> {
+//     None
+// }
 
-#[cfg(target_env = "msvc")]
-fn try_vcpkg(statik: bool) -> Option<Vec<PathBuf>> {
-    if !statik {
-        env::set_var("VCPKGRS_DYNAMIC", "1");
-    }
+// #[cfg(target_env = "msvc")]
+// fn try_vcpkg(statik: bool) -> Option<Vec<PathBuf>> {
+//     if !statik {
+//         env::set_var("VCPKGRS_DYNAMIC", "1");
+//     }
 
-    vcpkg::find_package("ffmpeg")
-        .map_err(|e| {
-            println!("Could not find ffmpeg with vcpkg: {}", e);
-        })
-        .map(|library| library.include_paths)
-        .ok()
-}
+//     vcpkg::find_package("ffmpeg")
+//         .map_err(|e| {
+//             println!("Could not find ffmpeg with vcpkg: {}", e);
+//         })
+//         .map(|library| library.include_paths)
+//         .ok()
+// }
 
 fn check_features(
     include_paths: Vec<PathBuf>,
@@ -645,31 +645,13 @@ fn main() {
     let include_paths: Vec<PathBuf> = {
         let path = env::current_dir().unwrap();
         #[cfg(target_os = "windows") ]
-        {
-            println!("cargo:rustc-link-search=native={}", path.join("bin/x64-windows/").to_str().unwrap());
-            // println!("cargo:rustc-link-dylib=avcodec-59");
-            // println!("cargo:rustc-link-dylib=avdevice-59");
-            // println!("cargo:rustc-link-dylib=avfilter-8");
-            // println!("cargo:rustc-link-dylib=avformat-59");
-            // println!("cargo:rustc-link-dylib=avutil-57");
-            // println!("cargo:rustc-link-dylib=swresample-4");
-            // println!("cargo:rustc-link-dylib=swscale-6");
+        println!("cargo:rustc-link-search=native={}", path.join("bin/x64-windows/").to_str().unwrap());
             
-        }
-        
-
         #[cfg(not(target_os = "windows")) ]
-        {
-            println!("cargo:rustc-link-search=native={}", path.join("bin/aarch64-android/").to_str().unwrap());
-        //     println!("cargo:rustc-link-dylib=avcodec");
-        //     println!("cargo:rustc-link-dylib=avdevice");
-        //     println!("cargo:rustc-link-dylib=avfilter");
-        //     println!("cargo:rustc-link-dylib=avformat");
-        //     println!("cargo:rustc-link-dylib=avutil");
-        //     println!("cargo:rustc-link-dylib=swresample");
-        //     println!("cargo:rustc-link-dylib=swscale");
-        }
+        println!("cargo:rustc-link-search=native={}", path.join("bin/aarch64-android/").to_str().unwrap());
+        
         link_to_libraries(statik);
+        
         let include_paths = vec![path.join("include")];
         include_paths
     };
@@ -1231,6 +1213,7 @@ fn main() {
     // to bindgen, and lets you build up options for
     // the resulting bindings.
     } else {
+        // 安卓生成 binding.rs 有问题，直接拷贝windows 生成的
         let path = std::env::current_dir().unwrap();
         println!("path {:?}", path.join("bindings.rs"));
         let mut dst = env::var("OUT_DIR").unwrap();
